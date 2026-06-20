@@ -1,0 +1,74 @@
+{
+  "manifest_version": 3,
+  "name": "SOC App Discovery Assistant",
+  "version": "0.5.0",
+  "description": "Tab-to-tab App Discovery automation — Umbrella, VirusTotal, Talos, XDR, SOC notebook. No APIs.",
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "tabs",
+    "scripting",
+    "activeTab",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://dashboard.umbrella.com/*",
+    "https://*.umbrella.com/*",
+    "https://www.virustotal.com/*",
+    "https://talosintelligence.com/*",
+    "https://xdr.security.cisco.com/*",
+    "https://xdr.us.security.cisco.com/*",
+    "https://docs.google.com/*",
+    "https://gemini.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "App Discovery Assistant",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://dashboard.umbrella.com/*"],
+      "js": ["content/umbrella.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://docs.google.com/spreadsheets/*"],
+      "js": ["content/notebook.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.virustotal.com/*"],
+      "js": ["content/virustotal.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://talosintelligence.com/*"],
+      "js": ["content/talos.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://xdr.security.cisco.com/*",
+        "https://xdr.us.security.cisco.com/*"
+      ],
+      "js": ["content/xdr.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

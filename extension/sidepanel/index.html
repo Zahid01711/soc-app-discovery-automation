@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>App Discovery Assistant</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <header>
+    <div class="header-row">
+      <div>
+        <h1>App Discovery Assistant</h1>
+        <p class="subtitle">UNC Pembroke SOC · Cisco Umbrella workflow</p>
+      </div>
+      <span id="statusBadge" class="badge badge-warn">DRY-RUN</span>
+    </div>
+  </header>
+
+  <!-- SETUP -->
+  <section class="card card-setup">
+    <h2><span class="step-num">①</span> One-time setup</h2>
+    <ol class="setup-list">
+      <li id="setupLogin">Log into Chrome: <strong>Umbrella</strong>, <strong>XDR</strong>, <strong>SOC-Interns</strong> sheet</li>
+      <li id="setupNotebook">Open SOC-Interns Google Sheet → click the cell for your <strong>next</strong> entry</li>
+      <li>Click <button type="button" class="link-btn" id="setNotebookTab">Save notebook tab</button></li>
+      <li>Keep <strong>Dry-run ON</strong> until your first preview looks correct</li>
+    </ol>
+    <p class="setup-status" id="setupStatus">Checking setup…</p>
+  </section>
+
+  <!-- DO / DON'T -->
+  <section class="card card-rules">
+    <details open>
+      <summary>Do &amp; don’t (read this first)</summary>
+      <div class="rules-grid">
+        <div class="do">
+          <strong>Do</strong>
+          <ul>
+            <li>Review the preview before pasting</li>
+            <li>Use Umbrella <em>app detail</em> URLs (one per line)</li>
+            <li>Click the notebook cell <em>before</em> paste</li>
+            <li>Test <strong>one app</strong> before a batch of 5–15</li>
+          </ul>
+        </div>
+        <div class="dont">
+          <strong>Don’t</strong>
+          <ul>
+            <li>Turn off dry-run until preview is correct</li>
+            <li>Enable SHA auto-block until you’ve tested once</li>
+            <li>Close Umbrella/XDR tabs during a run</li>
+            <li>Paste if the run shows <span class="err-text">FAILED</span></li>
+          </ul>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- XDR MODE -->
+  <section class="card card-xdr">
+    <h2><span class="step-num">⚡</span> XDR investigation mode</h2>
+    <p class="lead">XDR scans can take 1–2 minutes. Pick how the bot handles them.</p>
+    <div class="mode-group">
+      <label class="mode-option">
+        <input type="radio" name="xdrMode" value="auto" checked />
+        <span><strong>Automatic</strong> — waits for scan, clicks domain, detects SHA, blocks if enabled below</span>
+      </label>
+      <label class="mode-option">
+        <input type="radio" name="xdrMode" value="assist" />
+        <span><strong>Assist</strong> — switches to XDR tab so you can watch; bot still waits &amp; finishes automatically</span>
+      </label>
+      <label class="mode-option">
+        <input type="radio" name="xdrMode" value="manual" />
+        <span><strong>Manual</strong> — bot pastes URL &amp; opens XDR; you review scan, then click Clean / Uncommon / Malicious below</span>
+      </label>
+    </div>
+    <label class="field">Max wait for XDR scan (seconds)
+      <input type="number" id="xdrMaxWaitSec" value="120" min="30" max="300" />
+    </label>
+    <label class="toggle"><input type="checkbox" id="enableShaBlocking" /><span><strong>Auto-block malicious SHA</strong> (Automatic mode only — never blocks domain)</span></label>
+    <button type="button" id="focusXdrBtn" class="btn-secondary" disabled>Switch to XDR tab</button>
+
+    <div id="xdrManualPanel" class="xdr-manual hidden">
+      <p class="lead"><strong>XDR waiting for you</strong> — review the scan, then choose:</p>
+      <div class="btn-row">
+        <button type="button" id="xdrManualClean" class="btn-primary">Clean</button>
+        <button type="button" id="xdrManualUncommon" class="btn-secondary">Uncommon — OK</button>
+        <button type="button" id="xdrManualMalicious" class="btn-danger">Malicious SHA found</button>
+      </div>
+      <p class="hint">Bot will continue the notebook entry after you click one.</p>
+    </div>
+  </section>
+
+  <!-- SAFETY -->
+  <section class="card card-safety">
+    <h2><span class="step-num">②</span> Safety settings</h2>
+    <label class="toggle"><input type="checkbox" id="dryRun" checked /><span><strong>Dry-run</strong> — preview only, never writes to notebook</span></label>
+    <label class="toggle"><input type="checkbox" id="stopOnError" checked /><span><strong>Stop on error</strong> — batch halts if one app fails (recommended)</span></label>
+    <label class="toggle"><input type="checkbox" id="autoPasteBatch" /><span><strong>Auto-paste batch</strong> — only when dry-run is OFF</span></label>
+    <button id="saveSettings" class="btn-secondary">Save settings</button>
+  </section>
+
+  <!-- MODE A -->
+  <section class="card">
+    <h2><span class="step-num">③</span> Batch — paste Umbrella links</h2>
+    <p class="lead">Best for 5–15 apps/day. Copy each app’s URL from the Umbrella address bar.</p>
+    <textarea id="urlBatch" rows="4" placeholder="Paste one Umbrella App Discovery URL per line, e.g.&#10;https://dashboard.umbrella.com/.../appdiscovery/apps/abc123"></textarea>
+    <div class="btn-row">
+      <button id="queueUrls" class="btn-secondary">Add to queue</button>
+      <button id="runBatchUrls" class="btn-primary">Run all apps</button>
+      <button id="stopBatch" class="btn-danger">Stop</button>
+    </div>
+    <p class="meta" id="queueStatus">Queue: 0 apps</p>
+  </section>
+
+  <!-- MODE B -->
+  <section class="card">
+    <h2><span class="step-num">④</span> Single app — current Umbrella tab</h2>
+    <p class="lead">Open one app detail page in Umbrella, then run.</p>
+    <button id="runOne" class="btn-primary">Run this app</button>
+    <label class="toggle"><input type="checkbox" id="openGemini" /><span>Open Gemini in new tab at end (you paste manually)</span></label>
+  </section>
+
+  <!-- MODE C -->
+  <section class="card card-collapsed">
+    <details>
+      <summary><span class="step-num">⑤</span> Optional — capture from list page</summary>
+      <p class="lead">On App Discovery list (Unreviewed filter), capture rows instead of URLs.</p>
+      <div class="btn-row">
+        <button id="captureList" class="btn-secondary">Capture list</button>
+        <label class="inline">Max <input type="number" id="batchLimit" value="15" min="1" max="50" /></label>
+        <button id="runListBatch" class="btn-secondary">Run list</button>
+      </div>
+    </details>
+  </section>
+
+  <!-- OUTPUT -->
+  <section class="card card-output">
+    <h2><span class="step-num">⑥</span> Preview &amp; paste</h2>
+    <div id="progressBox" class="progress-box">
+      <span id="progress">Ready — complete setup, then run an app.</span>
+    </div>
+    <p class="meta" id="summary"></p>
+    <textarea id="preview" rows="14" readonly placeholder="Filled notebook template appears here after a run…"></textarea>
+    <div class="btn-row">
+      <button id="copyPreview" class="btn-secondary">Copy all</button>
+      <button id="pasteNotebook" class="btn-primary">Paste to notebook</button>
+    </div>
+    <p class="alert" id="xdrWarning"></p>
+  </section>
+
+  <!-- INSTALL INFO -->
+  <section class="card card-install">
+    <details>
+      <summary>Source code &amp; reinstall</summary>
+      <p class="lead">Project folder on this PC:</p>
+      <code class="path">F:\UNCP_Reaserch\soc analyst automation\app discovery automation\extension</code>
+      <p class="lead">Load in Chrome:</p>
+      <ol>
+        <li>Open <code>chrome://extensions</code></li>
+        <li>Turn on <strong>Developer mode</strong></li>
+        <li>Click <strong>Load unpacked</strong></li>
+        <li>Select the <code>extension</code> folder above</li>
+        <li>Pin the extension → click icon to open this panel</li>
+      </ol>
+      <p class="hint">After code updates: click <strong>Reload</strong> on the extension card.</p>
+    </details>
+  </section>
+
+  <footer>
+    <button id="clearQueue" class="btn-danger btn-small">Clear queue</button>
+    <span class="version">v0.5.0</span>
+  </footer>
+
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>

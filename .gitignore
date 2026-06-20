@@ -1,0 +1,20 @@
+# Secrets
+.env
+.global_env
+
+# Large local recordings (keep locally — not for GitHub)
+videos rec/
+*.webm
+**/frames/
+**/frames_detailed/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Chrome extension pack artifacts
+*.crx
+*.pem
+dist/
+build/
