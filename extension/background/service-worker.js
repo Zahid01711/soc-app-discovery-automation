@@ -21,6 +21,10 @@ const DEFAULT_SETTINGS = {
   xdrMode: "auto",
   xdrMaxWaitMs: 120000,
   focusXdrTab: false,
+  keepUmbrellaTabsOpen: true,
+  enableGoogleAutoAssessment: false,
+  keepGoogleTabOpen: false,
+  analystName: "MD Zahidul Islam",
   actionLog: [],
 };
 
@@ -140,6 +144,11 @@ function makeCtx(settings, options = {}) {
     xdrMode: options.xdrMode ?? settings.xdrMode ?? "auto",
     xdrMaxWaitMs: options.xdrMaxWaitMs ?? settings.xdrMaxWaitMs ?? 120000,
     focusXdrTab: options.focusXdrTab ?? settings.focusXdrTab ?? false,
+    keepUmbrellaTabsOpen: options.keepUmbrellaTabsOpen ?? settings.keepUmbrellaTabsOpen ?? true,
+    enableGoogleAutoAssessment:
+      options.enableGoogleAutoAssessment ?? settings.enableGoogleAutoAssessment ?? false,
+    keepGoogleTabOpen: options.keepGoogleTabOpen ?? settings.keepGoogleTabOpen ?? false,
+    analystName: options.analystName ?? settings.analystName ?? "MD Zahidul Islam",
     stopOnError: options.stopOnError ?? settings.stopOnError,
     shouldStop: () => !batchState.running,
     shouldPause: () => batchState.paused,

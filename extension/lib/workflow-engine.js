@@ -135,9 +135,10 @@ async function runXdrPhase(app, ctx) {
 }
 
 export async function runAppWorkflow(app, ctx) {
-  const { waitMs = 3500, onProgress } = ctx;
+  const { waitMs = 3500, onProgress, keepUmbrellaTabsOpen = false, analystName = "MD Zahidul Islam" } = ctx;
 
   app.date = workflowDate();
+  app.analystName = analystName;
   const log = { steps: [], appName: app.appName };
 
   const progress = (step, detail) => {
@@ -151,7 +152,12 @@ export async function runAppWorkflow(app, ctx) {
     await ctx.waitLoad(tab.id);
     await sleep(2500);
     const detail = await extractWithRetry(tab.id);
-    await ctx.closeTab?.(tab.id);
+    if (!keepUmbrellaTabsOpen) {
+      await ctx.closeTab?.(tab.id);
+    } else {
+      app.keepOpenTabId = tab.id;
+      progress(STEP.UMBRELLA, "Left Umbrella app tab open for manual label update.");
+    }
     if (!detail?.ok) throw new Error(`Umbrella: ${detail?.error || "extract failed"}`);
     Object.assign(app, detail.app);
     app.date = workflowDate();
@@ -189,6 +195,12 @@ export async function runAppWorkflow(app, ctx) {
   app.recommendedLabel = inferRecommendedLabel(app);
   if (!app.analystNotes) app.analystNotes = buildAnalystNotes(app);
 
+  if (ctx.enableGoogleAutoAssessment) {
+    const assessment = await runGoogleAssessment(app, ctx).catch((err) => `Google auto-assessment unavailable: ${err.message}`);
+    app.geminiAssessment = assessment;
+    progress("Google", "Assessment captured.");
+  }
+
   const text = renderEntry(app);
   const result = {
     ok: true,
@@ -203,6 +215,39 @@ export async function runAppWorkflow(app, ctx) {
 
   progress(STEP.DONE, app.appName);
   return result;
+}
+
+async function runGoogleAssessment(app, ctx) {
+  const links = buildToolUrls(app.appUrl);
+  const tab = await ctx.openTab(links.geminiUrl, false);
+  await ctx.waitLoad(tab.id);
+  await sleep(2500);
+
+  const prompt = [
+    "You are a SOC analyst assistant.",
+    "Return a short school-network safety assessment in 4 lines:",
+    "1) Summary",
+    "2) Risk",
+    "3) Recommendation",
+    "4) Action",
+    `App: ${app.appName}`,
+    `URL: ${app.appUrl}`,
+    `Umbrella Risk: ${app.umbrellaRisk}`,
+    `VirusTotal: ${app.virusTotalSummary}`,
+    `Talos: ${app.talosSummary}`,
+    `XDR: ${app.xdrSummary}`,
+  ].join("\n");
+
+  const res = await sendTabMessage(tab.id, "GEMINI_RUN_PROMPT", { prompt });
+  if (!ctx.keepGoogleTabOpen) {
+    await ctx.closeTab?.(tab.id);
+  } else {
+    app.keepGoogleTabId = tab.id;
+  }
+  if (!res?.ok) {
+    throw new Error(res?.error || "Gemini prompt failed");
+  }
+  return res.response || "";
 }
 
 function buildAnalystNotes(app) {

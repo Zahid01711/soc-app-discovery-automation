@@ -5,6 +5,11 @@
 export const BLOCK_START = "----- APP DISCOVERY -----";
 
 export function renderEntry(d) {
+  const analystName = d.analystName || "MD Zahidul Islam";
+  const vtBadge = pickBadge(d.virusTotalSummary, "vt");
+  const talosBadge = pickBadge(d.talosSummary, "talos");
+  const xdrBadge = pickBadge(d.xdrSummary, "xdr", d.xdrStatus);
+
   let xdrLine;
   if (d.xdrStatus === "malicious_sha") {
     const hashLines = (d.maliciousShas || []).map((h) => `  ${h}`).join("\n");
@@ -23,34 +28,42 @@ export function renderEntry(d) {
   }
 
   return [
-    BLOCK_START,
+    "╔══════════════════════════════════════════════════════════════════════╗",
+    "║ APP DISCOVERY REPORT                                                 ║",
+    "╚══════════════════════════════════════════════════════════════════════╝",
     `Date: ${d.date || ""}`,
+    `Analyst: ${analystName}`,
     "",
-    `App Name: ${d.appName || ""}`,
-    `App URL: ${d.appUrl || ""}`,
+    "------------------------ APP PROFILE -----------------------------------",
+    `App Name         : ${d.appName || ""}`,
+    `App URL          : ${d.appUrl || ""}`,
     `Vendor: ${d.vendor || ""}`,
     `Category: ${d.category || ""}`,
     `App Type: ${d.appType || ""}`,
-    `Description: ${d.description || ""}`,
+    `Description      : ${d.description || ""}`,
     "",
-    `Umbrella Risk: ${d.umbrellaRisk || ""}`,
-    `Label: ${d.currentLabel || ""}`,
-    `Identities: ${d.identities || ""}`,
-    `DNS Total: ${d.dnsTotal || ""}`,
-    `DNS Blocked: ${d.dnsBlocked || ""}`,
-    `First Detected: ${d.firstDetected || ""}`,
-    `Last Detected: ${d.lastDetected || ""}`,
-    `Business Risk: ${d.businessRisk || ""}`,
-    `Usage Risk: ${d.usageRisk || ""}`,
+    "------------------------ UMBRELLA --------------------------------------",
+    `Umbrella Risk    : ${d.umbrellaRisk || ""}`,
+    `Label            : ${d.currentLabel || ""}`,
+    `Identities       : ${d.identities || ""}`,
+    `DNS Total        : ${d.dnsTotal || ""}`,
+    `DNS Blocked      : ${d.dnsBlocked || ""}`,
+    `First Detected   : ${d.firstDetected || ""}`,
+    `Last Detected    : ${d.lastDetected || ""}`,
+    `Business Risk    : ${d.businessRisk || ""}`,
+    `Usage Risk       : ${d.usageRisk || ""}`,
     `Vendor Compliance: ${d.vendorCompliance || ""}`,
     `Web Reputation (Talos/Umbrella): ${d.webReputation || ""}`,
     "",
-    `VirusTotal: ${d.virusTotalSummary || ""}`,
-    `Talos Reputation: ${d.talosSummary || ""}`,
-    xdrLine,
+    "------------------------ THREAT INTEL ----------------------------------",
+    `VirusTotal       : ${vtBadge} ${d.virusTotalSummary || ""}`,
+    `Talos Reputation : ${talosBadge} ${d.talosSummary || ""}`,
+    `XDR              : ${xdrBadge} ${xdrLine}`,
+    ...(d.geminiAssessment ? ["", "Google AI Assessment:", d.geminiAssessment] : []),
     "",
-    `Recommended Label: ${d.recommendedLabel || ""}`,
-    `Analyst Notes: ${d.analystNotes || ""}`,
+    "------------------------ DECISION --------------------------------------",
+    `Recommended Label: ${d.recommendedLabel || "Under Audit"}`,
+    `Analyst Notes    : ${d.analystNotes || ""}`,
     "",
     "-------------------------",
     "",
@@ -108,4 +121,16 @@ export function inferRecommendedLabel(d) {
   if (/approved/i.test(d.currentLabel || "")) return "Approved";
   if (/medium|high/i.test(d.umbrellaRisk || "")) return "Under Audit";
   return "Approved";
+}
+
+function pickBadge(text, source, xdrStatus) {
+  const t = (text || "").toLowerCase();
+  if (source === "xdr") {
+    if (xdrStatus === "malicious_sha" || t.includes("malicious")) return "🔴";
+    if (xdrStatus === "uncommon" || t.includes("uncommon")) return "🟡";
+    return "🟢";
+  }
+  if (t.includes("malicious") || t.includes("flagged") || t.includes("poor")) return "🔴";
+  if (t.includes("uncommon") || t.includes("neutral") || t.includes("unknown")) return "🟡";
+  return "🟢";
 }

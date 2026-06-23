@@ -146,20 +146,21 @@ Each app produces one block (same format as Zoho CRM example in training videos)
 * **Jun 19, 2026**: v0.4 — UI overhaul (setup checklist, do/don't), tab messaging retries, `INSTALL.md`.
 * **Jun 19, 2026**: v0.5 — Full XDR pipeline: long scan wait, domain node click, malicious SHA validation, Auto/Assist/Manual modes, manual decision panel in side panel.
 * **Jun 19, 2026**: Created `mastermind.md`, `.gitignore`, pushed to GitHub `Zahid01711/soc-app-discovery-automation`.
+* **Jun 23, 2026**: v0.6 — Added improved notebook block styling with box/line format and color status markers (🟢/🟡/🔴), analyst name field, optional Google auto-assessment via Gemini tab, and `keepUmbrellaTabsOpen` to keep app tabs open for manual label change to **Under Audit**.
 
 ---
 
 ## 🔮 Current Status
 
-* **Status:** **v0.5.0 — Ready for analyst testing at UNC Pembroke SOC**
-* **Version:** `0.5.0` (see `extension/manifest.json`)
+* **Status:** **v0.6.0 — Testing improvements from post-install videos integrated**
+* **Version:** `0.6.0` (see `extension/manifest.json`)
 * **GitHub Repository:** `https://github.com/Zahid01711/soc-app-discovery-automation`
 * **Active Branch:** `main`
 * **Git Auth:** SSH (`git@github.com:Zahid01711/soc-app-discovery-automation.git`) via `~/.ssh/github_zahid`
 * **Next Steps:**
-  1. Analyst tests one app in **Assist** mode with dry-run ON
-  2. Tune Umbrella/XDR DOM selectors if Cisco UI differs on campus machines
-  3. Match exact SOC-Interns sheet cell layout once template screenshot available
+  1. Test **v0.6** with one app in Automatic mode + Google auto-assessment ON
+  2. Validate notebook text style/colors against office notebook page
+  3. Confirm batch with `keepUmbrellaTabsOpen` and manual label updates
   4. Future: AMP module, endpoint tickets (reuse workflow engine + side panel)
 
 ---

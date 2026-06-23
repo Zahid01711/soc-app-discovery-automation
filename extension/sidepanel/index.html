@@ -77,6 +77,12 @@
       <input type="number" id="xdrMaxWaitSec" value="120" min="30" max="300" />
     </label>
     <label class="toggle"><input type="checkbox" id="enableShaBlocking" /><span><strong>Auto-block malicious SHA</strong> (Automatic mode only — never blocks domain)</span></label>
+    <label class="toggle"><input type="checkbox" id="keepUmbrellaTabsOpen" checked /><span><strong>Keep Umbrella app tabs open</strong> so you can manually change labels to Under Audit</span></label>
+    <label class="toggle"><input type="checkbox" id="enableGoogleAutoAssessment" /><span><strong>Google AI auto assessment</strong> (best effort from Gemini tab)</span></label>
+    <label class="toggle"><input type="checkbox" id="keepGoogleTabOpen" /><span>Keep Gemini tab open after capture</span></label>
+    <label class="field">Analyst Name
+      <input type="text" id="analystName" value="MD Zahidul Islam" />
+    </label>
     <button type="button" id="focusXdrBtn" class="btn-secondary" disabled>Switch to XDR tab</button>
 
     <div id="xdrManualPanel" class="xdr-manual hidden">
@@ -168,7 +174,7 @@
 
   <footer>
     <button id="clearQueue" class="btn-danger btn-small">Clear queue</button>
-    <span class="version">v0.5.0</span>
+    <span class="version">v0.6.0</span>
   </footer>
 
   <script type="module" src="sidepanel.js"></script>

@@ -15,6 +15,10 @@ function getWorkflowOptions(extra = {}) {
     xdrMode: getXdrMode(),
     xdrMaxWaitMs: (parseInt($("xdrMaxWaitSec").value, 10) || 120) * 1000,
     enableShaBlocking: $("enableShaBlocking").checked,
+    keepUmbrellaTabsOpen: $("keepUmbrellaTabsOpen").checked,
+    enableGoogleAutoAssessment: $("enableGoogleAutoAssessment").checked,
+    keepGoogleTabOpen: $("keepGoogleTabOpen").checked,
+    analystName: $("analystName").value.trim() || "MD Zahidul Islam",
     stopOnError: $("stopOnError").checked,
     focusXdrTab: getXdrMode() === "assist",
     ...extra,
@@ -48,6 +52,10 @@ async function loadSettings() {
   $("stopOnError").checked = settings.stopOnError !== false;
   $("enableShaBlocking").checked = !!settings.enableShaBlocking;
   $("autoPasteBatch").checked = !!settings.autoPasteBatch;
+  $("keepUmbrellaTabsOpen").checked = settings.keepUmbrellaTabsOpen !== false;
+  $("enableGoogleAutoAssessment").checked = !!settings.enableGoogleAutoAssessment;
+  $("keepGoogleTabOpen").checked = !!settings.keepGoogleTabOpen;
+  $("analystName").value = settings.analystName || "MD Zahidul Islam";
   $("xdrMaxWaitSec").value = Math.round((settings.xdrMaxWaitMs || 120000) / 1000);
   const mode = settings.xdrMode || "auto";
   const radio = document.querySelector(`input[name="xdrMode"][value="${mode}"]`);
@@ -61,6 +69,10 @@ async function saveSettings() {
       stopOnError: $("stopOnError").checked,
       enableShaBlocking: $("enableShaBlocking").checked,
       autoPasteBatch: $("autoPasteBatch").checked,
+      keepUmbrellaTabsOpen: $("keepUmbrellaTabsOpen").checked,
+      enableGoogleAutoAssessment: $("enableGoogleAutoAssessment").checked,
+      keepGoogleTabOpen: $("keepGoogleTabOpen").checked,
+      analystName: $("analystName").value.trim() || "MD Zahidul Islam",
       xdrMode: getXdrMode(),
       xdrMaxWaitMs: (parseInt($("xdrMaxWaitSec").value, 10) || 120) * 1000,
     },
@@ -138,7 +150,7 @@ function showOneResult(res) {
 function showBatchResult(res) {
   $("preview").value = res.text || "";
   const s = res.summary || {};
-  $("summary").textContent = `${s.success}/${s.total} · ${s.shaApps || 0} malicious · ${s.blocked || 0} blocked`;
+  $("summary").textContent = `${s.success}/${s.total} · ${s.shaApps || 0} malicious · ${s.blocked || 0} blocked · Umbrella tabs open for manual label update`;
   updateXdrAlert({ app: { xdrStatus: s.shaApps ? "malicious_sha" : "clean", shaBlocked: s.blocked ? ["x"] : [] } });
 }
 

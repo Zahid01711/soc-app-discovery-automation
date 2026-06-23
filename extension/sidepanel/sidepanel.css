@@ -418,6 +418,16 @@ footer {
   color: #e6edf3;
 }
 
+.field input[type="text"] {
+  width: 100%;
+  margin-top: 4px;
+  padding: 7px;
+  border-radius: 6px;
+  border: 1px solid #30363d;
+  background: #0d1117;
+  color: #e6edf3;
+}
+
 .xdr-manual {
   margin-top: 12px;
   padding: 12px;

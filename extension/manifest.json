@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SOC App Discovery Assistant",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Tab-to-tab App Discovery automation — Umbrella, VirusTotal, Talos, XDR, SOC notebook. No APIs.",
   "permissions": [
     "storage",
@@ -63,6 +63,11 @@
         "https://xdr.us.security.cisco.com/*"
       ],
       "js": ["content/xdr.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://gemini.google.com/*"],
+      "js": ["content/gemini.js"],
       "run_at": "document_idle"
     }
   ],

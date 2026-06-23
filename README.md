@@ -2,7 +2,7 @@
 
 Chrome extension for **UNC Pembroke SOC** analysts — automates **Cisco Umbrella App Discovery** (Umbrella → VirusTotal → Talos → XDR → SOC-Interns notebook) in your logged-in browser.
 
-[![Version](https://img.shields.io/badge/version-0.5.0-blue)](extension/manifest.json)
+[![Version](https://img.shields.io/badge/version-0.6.0-blue)](extension/manifest.json)
 [![Chrome](https://img.shields.io/badge/Chrome-MV3-green)](https://developer.chrome.com/docs/extensions/mv3/)
 
 ## Quick links
