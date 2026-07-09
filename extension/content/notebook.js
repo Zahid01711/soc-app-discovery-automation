@@ -3,49 +3,15 @@
  */
 
 (function () {
-  if (window.__SOC_ADA_notebook__) return;
-  window.__SOC_ADA_notebook__ = true;
-
   const BLOCK_START = "----- APP DISCOVERY -----";
-  const BLANK_BLOCK = [
-    BLOCK_START,
-    "Date:",
-    "",
-    "App Name:",
-    "App URL:",
-    "Vendor:",
-    "Category:",
-    "App Type:",
-    "Description:",
-    "",
-    "Umbrella Risk:",
-    "Label:",
-    "Identities:",
-    "DNS Total:",
-    "DNS Blocked:",
-    "First Detected:",
-    "Last Detected:",
-    "Business Risk:",
-    "Usage Risk:",
-    "Vendor Compliance:",
-    "Web Reputation (Talos/Umbrella):",
-    "",
-    "VirusTotal:",
-    "Talos Reputation:",
-    "XDR:",
-    "",
-    "Recommended Label:",
-    "Analyst Notes:",
-    "",
-    "-------------------------",
-    "",
-  ].join("\n");
 
   chrome.runtime.onMessage.addListener((msg, _s, sendResponse) => {
     try {
-      if (msg.type === "PASTE_ENTRY") {
-        sendResponse({ ok: true, ...pasteBlock(msg.text, msg.appendBlank !== false) });
-      } else if (msg.type === "PASTE_BATCH") {
+      if (msg.type === "PING") {
+        sendResponse({ ok: true, page: "notebook" });
+        return true;
+      }
+      if (msg.type === "PASTE_ENTRY" || msg.type === "PASTE_BATCH") {
         sendResponse({ ok: true, ...pasteBlock(msg.text, msg.appendBlank !== false) });
       } else if (msg.type === "NOTEBOOK_READY") {
         sendResponse({ ok: true, title: document.title, url: location.href });
@@ -69,40 +35,62 @@
     }
 
     cell.focus();
+    cell.click?.();
+
     const existing = getCellText(cell);
-    let payload = text;
+    let payload = text.trim();
 
     if (existing.trim() && !existing.includes(BLOCK_START)) {
-      payload = existing.trimEnd() + "\n\n" + text;
-    }
-
-    if (appendBlank) {
-      payload = payload.trimEnd() + "\n\n" + BLANK_BLOCK;
+      payload = existing.trimEnd() + "\n\n" + payload;
     }
 
     insertText(cell, payload);
     commitEdit(cell);
 
-    return { pasted: true, chars: payload.length, blocks: (payload.match(/----- APP DISCOVERY -----/g) || []).length };
+    return {
+      pasted: true,
+      chars: payload.length,
+      blocks: (payload.match(/----- APP DISCOVERY -----/g) || []).length,
+    };
   }
 
   function getActiveCellInput() {
-    return (
-      document.querySelector("#t-formula-bar-input") ||
-      document.querySelector(".cell-input") ||
-      document.querySelector("[contenteditable='true']")
-    );
+    const selectors = [
+      "#t-formula-bar-input",
+      ".cell-input",
+      "div.cell-input",
+      "[contenteditable='true'][role='textbox']",
+      "[contenteditable='true']",
+    ];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el && isVisible(el)) return el;
+    }
+    return null;
+  }
+
+  function isVisible(el) {
+    const r = el.getBoundingClientRect?.();
+    return !r || (r.width > 0 && r.height > 0);
   }
 
   function getCellText(el) {
-    if (el.isContentEditable) return el.textContent || "";
+    if (el.isContentEditable) return el.textContent || el.innerText || "";
     return el.value || "";
   }
 
   function insertText(el, text) {
     if (el.isContentEditable) {
-      el.textContent = text;
-      el.dispatchEvent(new InputEvent("input", { bubbles: true, data: text }));
+      el.focus();
+      if (document.queryCommandSupported?.("selectAll")) {
+        document.execCommand("selectAll", false, null);
+      }
+      if (document.queryCommandSupported?.("insertText")) {
+        document.execCommand("insertText", false, text);
+      } else {
+        el.textContent = text;
+        el.dispatchEvent(new InputEvent("input", { bubbles: true, data: text, inputType: "insertText" }));
+      }
     } else {
       el.value = text;
       el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -111,6 +99,7 @@
   }
 
   function commitEdit(el) {
-    el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));
   }
 })();

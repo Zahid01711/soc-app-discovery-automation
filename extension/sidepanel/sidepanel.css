@@ -340,6 +340,11 @@ textarea[readonly] {
   color: #3fb950;
 }
 
+.alert.pending {
+  background: #2a2410;
+  color: #d4a72c;
+}
+
 footer {
   display: flex;
   justify-content: space-between;

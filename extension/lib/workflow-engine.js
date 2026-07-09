@@ -2,7 +2,7 @@ import { workflowDate } from "./date.js";
 import { validateUmbrellaApp, validateWorkflowResult } from "./validate.js";
 import { renderEntry, inferRecommendedLabel } from "./template.js";
 import { buildToolUrls } from "./links.js";
-import { sendTabMessage, sleep, withBackgroundTab } from "./tab-messaging.js";
+import { sendTabMessage, sleep, withBackgroundTab, ensureTabReady } from "./tab-messaging.js";
 
 const STEP = {
   UMBRELLA: "Umbrella",
@@ -46,22 +46,23 @@ function waitForManualDecision(tabId, app, onProgress, shouldStop) {
   });
 }
 
-async function extractWithRetry(tabId, retries = 3) {
-  for (let i = 0; i < retries; i++) {
-    const detail = await sendTabMessage(tabId, "EXTRACT_DETAIL");
-    if (detail?.ok && detail.app?.appUrl) return detail;
-    await sleep(1500);
+async function waitForUmbrellaDetail(tabId, detailUrl, maxWaitMs = 45000) {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const detail = await sendTabMessage(tabId, "EXTRACT_DETAIL").catch(() => null);
+    if (detail?.ok && detail.app?.appUrl && detail.app?.appName) return detail;
+    await sleep(2000);
   }
   return sendTabMessage(tabId, "EXTRACT_DETAIL");
 }
 
-async function readExternalCheck(tabId, messageType, label) {
-  for (let attempt = 0; attempt < 3; attempt++) {
+async function readExternalCheck(tabId, messageType, label, waitMs = 3500) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     const res = await sendTabMessage(tabId, messageType).catch(() => null);
-    if (res?.summary) return res;
-    await sleep(1200);
+    if (res?.summary && !/see (virus|talos) tab/i.test(res.summary)) return res;
+    await sleep(waitMs / 2 + attempt * 800);
   }
-  throw new Error(`${label}: could not read result — page may still be loading`);
+  throw new Error(`${label}: could not read result — log in to ${label} in Chrome and retry`);
 }
 
 async function runXdrPhase(app, ctx) {
@@ -70,6 +71,7 @@ async function runXdrPhase(app, ctx) {
     enableShaBlocking = false,
     xdrMaxWaitMs = 120000,
     focusXdrTab = false,
+    keepXdrTabOpen = false,
     onProgress,
     focusTab,
     closeTab,
@@ -78,18 +80,20 @@ async function runXdrPhase(app, ctx) {
   const links = buildToolUrls(app.appUrl);
   const xdrTab = await ctx.openTab(links.xdrInvestigateUrl, false);
   await ctx.waitLoad(xdrTab.id);
-  await sleep(2000);
+  await ensureTabReady(xdrTab.id, links.xdrInvestigateUrl);
+  await sleep(2500);
 
   app.shaBlocked = [];
   app.shaBlockFailed = [];
   app.xdrMode = xdrMode;
 
-  // --- MANUAL: paste URL, switch to XDR, user decides ---
+  const keepTab = keepXdrTabOpen || xdrMode === "assist" || xdrMode === "manual";
+
   if (xdrMode === "manual") {
     onProgress?.(STEP.XDR, "Pasting URL — switch to XDR and review…");
     const inv = await sendTabMessage(xdrTab.id, "XDR_INVESTIGATE", { searchUrl: app.appUrl });
     if (!inv?.ok) {
-      await closeTab?.(xdrTab.id);
+      if (!keepTab) await closeTab?.(xdrTab.id);
       throw new Error(`XDR: ${inv?.error || "could not start investigation"}`);
     }
 
@@ -98,7 +102,7 @@ async function runXdrPhase(app, ctx) {
 
     const manual = await waitForManualDecision(xdrTab.id, app, onProgress, ctx.shouldStop);
     if (manual.cancelled) {
-      await closeTab?.(xdrTab.id);
+      if (!keepTab) await closeTab?.(xdrTab.id);
       throw new Error("Workflow stopped");
     }
     app.xdrStatus = manual.xdrStatus || "clean";
@@ -107,13 +111,10 @@ async function runXdrPhase(app, ctx) {
     app.shaBlocked = manual.shaBlocked || [];
     app.analystNotes = manual.analystNotes || "";
 
-    if (!ctx.keepXdrTabOpen && xdrMode !== "assist" && xdrMode !== "manual") {
-      await closeTab?.(xdrTab.id);
-    }
+    if (!keepTab) await closeTab?.(xdrTab.id);
     return;
   }
 
-  // --- AUTO or ASSIST (assist = show XDR tab while bot works) ---
   if (xdrMode === "assist" || focusXdrTab) {
     await focusTab?.(xdrTab.id);
     onProgress?.(STEP.XDR, "XDR tab open — watch scan (bot will wait until complete)…");
@@ -129,7 +130,7 @@ async function runXdrPhase(app, ctx) {
   });
 
   if (!pipeline?.ok) {
-    await closeTab?.(xdrTab.id);
+    if (!keepTab) await closeTab?.(xdrTab.id);
     throw new Error(`XDR: ${pipeline?.error || "pipeline failed"}`);
   }
 
@@ -148,13 +149,13 @@ async function runXdrPhase(app, ctx) {
     onProgress?.(STEP.XDR_BLOCK, `Blocked ${app.shaBlocked.length} SHA in XDR`);
   }
 
-  if (!ctx.keepXdrTabOpen && xdrMode !== "assist" && xdrMode !== "manual") {
-    await closeTab?.(xdrTab.id);
-  }
+  if (!keepTab) await closeTab?.(xdrTab.id);
 }
 
 export async function runAppWorkflow(app, ctx) {
-  const { waitMs = 3500, onProgress, keepUmbrellaTabsOpen = false, analystName = "MD Zahidul Islam" } = ctx;
+  const { waitMs = 4000, onProgress, keepUmbrellaTabsOpen = true, analystName = "MD Zahidul Islam" } = ctx;
+
+  if (ctx.shouldStop?.()) throw new Error("Workflow stopped");
 
   app.date = workflowDate();
   app.analystName = analystName;
@@ -169,8 +170,9 @@ export async function runAppWorkflow(app, ctx) {
     progress(STEP.UMBRELLA, "Loading app page…");
     const tab = await ctx.openTab(app.detailUrl, false);
     await ctx.waitLoad(tab.id);
-    await sleep(2500);
-    const detail = await extractWithRetry(tab.id);
+    await ensureTabReady(tab.id, app.detailUrl);
+    await sleep(3500);
+    const detail = await waitForUmbrellaDetail(tab.id, app.detailUrl);
     if (!keepUmbrellaTabsOpen) {
       await ctx.closeTab?.(tab.id);
     } else {
@@ -191,16 +193,16 @@ export async function runAppWorkflow(app, ctx) {
   progress(STEP.VT, "Checking domain…");
   const vt = await withBackgroundTab(links.virusTotalUrl, async (tabId) => {
     await sleep(waitMs);
-    return readExternalCheck(tabId, "VT_EXTRACT", "VirusTotal");
-  });
+    return readExternalCheck(tabId, "VT_EXTRACT", "VirusTotal", waitMs);
+  }, { minReadyMs: waitMs });
   app.virusTotalSummary = vt.summary;
   progress(STEP.VT, vt.summary);
 
   progress(STEP.TALOS, "Checking reputation…");
   const talos = await withBackgroundTab(links.talosUrl, async (tabId) => {
     await sleep(waitMs);
-    return readExternalCheck(tabId, "TALOS_EXTRACT", "Talos");
-  });
+    return readExternalCheck(tabId, "TALOS_EXTRACT", "Talos", waitMs);
+  }, { minReadyMs: waitMs });
   app.talosSummary = talos.summary;
   progress(STEP.TALOS, talos.summary);
 
@@ -243,7 +245,8 @@ async function runGoogleAssessment(app, ctx) {
   const links = buildToolUrls(app.appUrl);
   const tab = await ctx.openTab(links.geminiUrl, false);
   await ctx.waitLoad(tab.id);
-  await sleep(2500);
+  await ensureTabReady(tab.id, links.geminiUrl);
+  await sleep(3000);
 
   const prompt = [
     "You are a SOC analyst assistant.",
@@ -299,7 +302,8 @@ export async function runBatchWorkflow(apps, ctx) {
       errors.push({ index: i, app, error: err.message });
       if (ctx.stopOnError !== false) {
         const name = app.appName || app.detailUrl || `app ${i + 1}`;
-        throw new Error(`Stopped at ${name}: ${err.message}`);
+        const partial = { results, errors, stopped: true, stoppedAt: name, message: err.message };
+        throw Object.assign(new Error(`Stopped at ${name}: ${err.message}`), { partial });
       }
     }
   }

@@ -99,6 +99,11 @@
   window.__SOC_APP_DISCOVERY__ = { extractDetail, extractList };
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (msg.type === "PING") {
+      sendResponse({ ok: true, page: "umbrella" });
+      return true;
+    }
+
     if (msg.type === "EXTRACT_DETAIL") {
       if (!location.href.includes("appdiscovery")) {
         sendResponse({ ok: false, error: "Open an App Discovery detail page first." });

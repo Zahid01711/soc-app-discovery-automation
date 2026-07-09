@@ -1,71 +1,44 @@
 /**
- * Notebook block — Zoho-style template used for every app (fields change, format stays same).
+ * Notebook block — matches SOC-Interns OneNote table layout (plain text for Google Sheets).
  */
 
 export const BLOCK_START = "----- APP DISCOVERY -----";
+const BLOCK_END = "-------------------------";
 
-export function renderEntry(d) {
+export function renderEntry(d, entryNum = 1) {
   const analystName = d.analystName || "MD Zahidul Islam";
-  const vtBadge = pickBadge(d.virusTotalSummary, "vt");
-  const talosBadge = pickBadge(d.talosSummary, "talos");
-  const xdrBadge = pickBadge(d.xdrSummary, "xdr", d.xdrStatus);
-
-  let xdrLine;
-  if (d.xdrStatus === "malicious_sha") {
-    const hashLines = (d.maliciousShas || []).map((h) => `  ${h}`).join("\n");
-    if (d.shaBlocked?.length) {
-      xdrLine = `XDR: Malicious SHA found — BLOCKED in XDR:\n${d.shaBlocked.map((h) => `  ${h}`).join("\n")}`;
-      if (d.shaBlockFailed?.length) {
-        xdrLine += `\nFailed to block:\n${d.shaBlockFailed.map((h) => `  ${h}`).join("\n")}`;
-      }
-    } else {
-      xdrLine = `XDR: Malicious SHA found — block SHA256 (domain NOT blocked unless malicious):\n${hashLines}`;
-    }
-  } else if (d.xdrStatus === "uncommon") {
-    xdrLine = "XDR: Uncommon — reviewed, overall clean";
-  } else {
-    xdrLine = "XDR: Clean";
-  }
+  const status = d.recommendedLabel || inferRecommendedLabel(d);
+  const vtLine = formatVtLine(d.virusTotalSummary);
+  const talosLine = formatTalosLine(d.talosSummary);
+  const xdrLine = formatXdrLine(d);
+  const investigation = buildInvestigation(d);
 
   return [
-    "╔══════════════════════════════════════════════════════════════════════╗",
-    "║ APP DISCOVERY REPORT                                                 ║",
-    "╚══════════════════════════════════════════════════════════════════════╝",
-    `Date: ${d.date || ""}`,
-    `Analyst: ${analystName}`,
-    "",
-    "------------------------ APP PROFILE -----------------------------------",
-    `App Name         : ${d.appName || ""}`,
-    `App URL          : ${d.appUrl || ""}`,
-    `Vendor: ${d.vendor || ""}`,
-    `Category: ${d.category || ""}`,
-    `App Type: ${d.appType || ""}`,
+    BLOCK_START,
+    `Date: ${shortDate(d.date)} | Entry: #${entryNum} | Status: ${status}`,
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+    `Name             : ${d.appName || ""}`,
+    `URL              : ${d.appUrl || ""}`,
     `Description      : ${d.description || ""}`,
-    "",
-    "------------------------ UMBRELLA --------------------------------------",
-    `Umbrella Risk    : ${d.umbrellaRisk || ""}`,
-    `Label            : ${d.currentLabel || ""}`,
+    `Vendor           : ${d.vendor || ""}`,
+    `Risk Score       : ${d.umbrellaRisk || ""}`,
     `Identities       : ${d.identities || ""}`,
-    `DNS Total        : ${d.dnsTotal || ""}`,
-    `DNS Blocked      : ${d.dnsBlocked || ""}`,
-    `First Detected   : ${d.firstDetected || ""}`,
-    `Last Detected    : ${d.lastDetected || ""}`,
-    `Business Risk    : ${d.businessRisk || ""}`,
-    `Usage Risk       : ${d.usageRisk || ""}`,
-    `Vendor Compliance: ${d.vendorCompliance || ""}`,
-    `Web Reputation (Talos/Umbrella): ${d.webReputation || ""}`,
+    `DNS Requests     : Total: ${formatNum(d.dnsTotal)}, Blocked: ${d.dnsBlocked || "-"}`,
+    `Category         : ${d.category || ""}`,
+    `App Type         : ${d.appType || ""}`,
     "",
-    "------------------------ THREAT INTEL ----------------------------------",
-    `VirusTotal       : ${vtBadge} ${d.virusTotalSummary || ""}`,
-    `Talos Reputation : ${talosBadge} ${d.talosSummary || ""}`,
-    `XDR              : ${xdrBadge} ${xdrLine}`,
-    ...(d.geminiAssessment ? ["", "Google AI Assessment:", d.geminiAssessment] : []),
+    "Tool(s) used:",
+    `  Virus-Total    : ${vtLine}`,
+    `  Talos          : ${talosLine}`,
+    `  XDR            : ${xdrLine}`,
     "",
-    "------------------------ DECISION --------------------------------------",
-    `Recommended Label: ${d.recommendedLabel || "Under Audit"}`,
+    "Investigation:",
+    investigation,
+    "",
+    `Analyst          : ${analystName}`,
     `Analyst Notes    : ${d.analystNotes || ""}`,
     "",
-    "-------------------------",
+    BLOCK_END,
     "",
   ].join("\n");
 }
@@ -74,40 +47,37 @@ export function renderBlankBlock() {
   return [
     BLOCK_START,
     "Date:",
+    "Entry: #",
+    "Status:",
     "",
-    "App Name:",
-    "App URL:",
+    "Name:",
+    "URL:",
+    "Description:",
     "Vendor:",
+    "Risk Score:",
+    "Identities:",
+    "DNS Requests:",
     "Category:",
     "App Type:",
-    "Description:",
     "",
-    "Umbrella Risk:",
-    "Label:",
-    "Identities:",
-    "DNS Total:",
-    "DNS Blocked:",
-    "First Detected:",
-    "Last Detected:",
-    "Business Risk:",
-    "Usage Risk:",
-    "Vendor Compliance:",
-    "Web Reputation (Talos/Umbrella):",
+    "Tool(s) used:",
+    "  Virus-Total:",
+    "  Talos:",
+    "  XDR:",
     "",
-    "VirusTotal:",
-    "Talos Reputation:",
-    "XDR:",
+    "Investigation:",
     "",
-    "Recommended Label:",
     "Analyst Notes:",
     "",
-    "-------------------------",
+    BLOCK_END,
     "",
   ].join("\n");
 }
 
 export function renderBatch(entries, appendBlank = true) {
-  const body = entries.map((e) => renderEntry(e.app || e)).join("\n");
+  const body = entries
+    .map((e, i) => renderEntry(e.app || e, i + 1))
+    .join("\n");
   return appendBlank ? body + renderBlankBlock() : body;
 }
 
@@ -120,17 +90,84 @@ export function inferRecommendedLabel(d) {
   if (/under audit/i.test(d.currentLabel || "")) return "Under Audit";
   if (/approved/i.test(d.currentLabel || "")) return "Approved";
   if (/medium|high/i.test(d.umbrellaRisk || "")) return "Under Audit";
-  return "Approved";
+  return "Under Audit";
 }
 
-function pickBadge(text, source, xdrStatus) {
-  const t = (text || "").toLowerCase();
-  if (source === "xdr") {
-    if (xdrStatus === "malicious_sha" || t.includes("malicious")) return "🔴";
-    if (xdrStatus === "uncommon" || t.includes("uncommon")) return "🟡";
-    return "🟢";
+function shortDate(dateStr) {
+  if (!dateStr) return workflowDateFallback();
+  const m = dateStr.match(/(\w+),\s*(\w+)\s+(\d+),\s*(\d+)/);
+  if (m) {
+    const months = { Jan: "01", Feb: "02", Mar: "03", Apr: "04", May: "05", Jun: "06", Jul: "07", Aug: "08", Sep: "09", Oct: "10", Nov: "11", Dec: "12" };
+    const mm = months[m[2]] || "01";
+    return `${mm}/${m[3].padStart(2, "0")}/${m[4]}`;
   }
-  if (t.includes("malicious") || t.includes("flagged") || t.includes("poor")) return "🔴";
-  if (t.includes("uncommon") || t.includes("neutral") || t.includes("unknown")) return "🟡";
-  return "🟢";
+  return dateStr;
+}
+
+function workflowDateFallback() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${mm}/${dd}/${d.getFullYear()}`;
+}
+
+function formatNum(n) {
+  if (!n && n !== 0) return "-";
+  const num = String(n).replace(/,/g, "");
+  return Number(num).toLocaleString("en-US");
+}
+
+function formatVtLine(summary) {
+  const s = summary || "Checked — see VirusTotal";
+  if (/0\/\d+|no security vendors flagged|no vendors flagged|clean/i.test(s)) {
+    return `🟢 ${s.includes("vendors") ? s : "No security vendors flagged this URL as malicious"}`;
+  }
+  if (/flagged|malicious|\d+\/\d+ vendors/i.test(s)) return `🔴 ${s}`;
+  return `🟡 ${s}`;
+}
+
+function formatTalosLine(summary) {
+  const s = summary || "Checked — see Talos";
+  if (/favorable|score\s*[1-9]/i.test(s)) return `🟢 ${s}`;
+  if (/neutral/i.test(s)) return `🟡 Neutral`;
+  if (/poor|questionable|-\d/i.test(s)) return `🔴 ${s}`;
+  if (/uncommon/i.test(s)) return `🟡 Uncommon`;
+  return `🟡 ${s}`;
+}
+
+function formatXdrLine(d) {
+  if (d.xdrStatus === "malicious_sha") {
+    const hashes = (d.maliciousShas || []).map((h) => `    ${h}`).join("\n");
+    if (d.shaBlocked?.length) {
+      const blocked = d.shaBlocked.map((h) => `    ${h}`).join("\n");
+      return `🔴 Malicious SHA — BLOCKED:\n${blocked}`;
+    }
+    return `🔴 Malicious SHA — block SHA256 (domain NOT auto-blocked):\n${hashes}`;
+  }
+  if (d.xdrStatus === "uncommon") return "🟡 uncommon — reviewed, overall clean";
+  const summary = (d.xdrSummary || "clean").replace(/^XDR:\s*/i, "");
+  return `🟢 ${summary}`;
+}
+
+function buildInvestigation(d) {
+  const lines = [];
+  if (d.appType) lines.push(`  Usage Type       : ${d.appType}`);
+  if (d.businessRisk) lines.push(`  Business Risk    : ${d.businessRisk}`);
+  if (d.usageRisk) lines.push(`  Usage Risk       : ${d.usageRisk}`);
+  if (d.vendorCompliance) lines.push(`  Vendor Compliance: ${d.vendorCompliance}`);
+  if (d.firstDetected) lines.push(`  First Detected   : ${d.firstDetected}`);
+  if (d.lastDetected) lines.push(`  Last Detected    : ${d.lastDetected}`);
+  if (d.webReputation) lines.push(`  Web Reputation   : ${d.webReputation}`);
+
+  if (d.geminiAssessment) {
+    lines.push("");
+    lines.push(`  (AI) What is ${d.appName} and what is it used for?`);
+    lines.push(`  ${d.geminiAssessment.replace(/\n/g, "\n  ")}`);
+  } else if (d.description) {
+    lines.push("");
+    lines.push(`  (AI) What is ${d.appName} and what is it used for?`);
+    lines.push(`  ${d.description}`);
+  }
+
+  return lines.length ? lines.join("\n") : "  (pending)";
 }

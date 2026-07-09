@@ -7,7 +7,7 @@ import {
 import { parseUmbrellaUrls } from "../lib/validate.js";
 import { renderBatch } from "../lib/template.js";
 import { buildToolUrls } from "../lib/links.js";
-import { sendTabMessage, waitForTabLoad, sleep } from "../lib/tab-messaging.js";
+import { sendTabMessage, waitForTabLoad, sleep, ensureTabReady } from "../lib/tab-messaging.js";
 
 const DEFAULT_SETTINGS = {
   dryRun: true,
@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS = {
   xdrMaxWaitMs: 120000,
   focusXdrTab: false,
   keepUmbrellaTabsOpen: true,
+  keepXdrTabOpen: false,
   enableGoogleAutoAssessment: false,
   keepGoogleTabOpen: false,
   analystName: "MD Zahidul Islam",
@@ -32,9 +33,14 @@ let batchState = { running: false, paused: false, queue: [] };
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  batchState.running = false;
   chrome.storage.local.get("settings", ({ settings }) => {
     if (!settings) chrome.storage.local.set({ settings: DEFAULT_SETTINGS });
   });
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  batchState.running = false;
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -68,6 +74,12 @@ async function handleMessage(msg) {
       return runBatch(msg.options || {});
     case "STOP_BATCH":
       batchState.running = false;
+      batchState.paused = false;
+      resolveManualXdr({ cancelled: true, xdrStatus: "clean", summary: "Stopped", maliciousShas: [] });
+      return { ok: true };
+    case "RESET_BATCH_STATE":
+      batchState.running = false;
+      batchState.paused = false;
       return { ok: true };
     case "PASTE_TO_NOTEBOOK":
       return pasteToNotebook(msg.text, msg.appendBlank !== false);
@@ -145,6 +157,7 @@ function makeCtx(settings, options = {}) {
     xdrMaxWaitMs: options.xdrMaxWaitMs ?? settings.xdrMaxWaitMs ?? 120000,
     focusXdrTab: options.focusXdrTab ?? settings.focusXdrTab ?? false,
     keepUmbrellaTabsOpen: options.keepUmbrellaTabsOpen ?? settings.keepUmbrellaTabsOpen ?? true,
+    keepXdrTabOpen: options.keepXdrTabOpen ?? settings.keepXdrTabOpen ?? false,
     enableGoogleAutoAssessment:
       options.enableGoogleAutoAssessment ?? settings.enableGoogleAutoAssessment ?? false,
     keepGoogleTabOpen: options.keepGoogleTabOpen ?? settings.keepGoogleTabOpen ?? false,
@@ -250,6 +263,30 @@ async function runBatch(options) {
     emitProgress({ step: "Batch complete", detail: `${summary.success}/${summary.total} apps`, text: combinedText, summary, phase: "done" });
 
     return { ok: true, text: combinedText, results: batchResult.results, errors: batchResult.errors, summary };
+  } catch (err) {
+    const partial = err.partial;
+    if (partial?.results?.length) {
+      const combinedText = renderBatch(partial.results, true);
+      const summary = {
+        total: apps.length,
+        success: partial.results.length,
+        failed: partial.errors.length,
+        shaApps: partial.results.filter((r) => r.app?.xdrStatus === "malicious_sha").length,
+        blocked: partial.results.reduce((n, r) => n + (r.app?.shaBlocked?.length || 0), 0),
+        stopped: true,
+        stoppedAt: partial.stoppedAt,
+      };
+      emitProgress({
+        step: "Batch stopped",
+        detail: err.message,
+        text: combinedText,
+        summary,
+        phase: "done",
+        error: err.message,
+      });
+      return { ok: false, error: err.message, text: combinedText, results: partial.results, errors: partial.errors, summary };
+    }
+    throw err;
   } finally {
     batchState.running = false;
   }
@@ -263,6 +300,7 @@ async function pasteToNotebook(text, appendBlank) {
   if (!text?.trim()) throw new Error("Nothing to paste — run workflow first.");
 
   const tabId = await resolveNotebookTab(settings);
+  await ensureTabReady(tabId, "https://docs.google.com/spreadsheets/");
   const res = await sendTabMessage(tabId, "PASTE_BATCH", { text, appendBlank });
   if (!res?.ok) throw new Error(res?.error || "Paste failed.");
   await logAction({ action: "pasted", chars: text.length });

@@ -23,7 +23,8 @@ export function validateUmbrellaApp(app) {
 export function validateWorkflowResult(result) {
   const errors = [];
   if (!result?.app?.appName) errors.push("Result missing app name");
-  if (!result?.text?.includes("APP DISCOVERY")) errors.push("Notebook block not rendered");
+  if (!result?.text?.includes("----- APP DISCOVERY -----")) errors.push("Notebook block not rendered");
+  if (!result?.text?.includes(result.app.appName)) errors.push("Notebook block missing app name");
   if (result?.app?.xdrStatus === "pending") errors.push("XDR investigation did not complete");
   return { valid: errors.length === 0, errors };
 }

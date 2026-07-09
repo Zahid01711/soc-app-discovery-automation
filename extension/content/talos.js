@@ -34,6 +34,10 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, _s, sendResponse) => {
+    if (msg.type === "PING") {
+      sendResponse({ ok: true, page: "talos" });
+      return true;
+    }
     if (msg.type === "TALOS_EXTRACT") sendResponse({ ok: true, ...extract() });
     return true;
   });

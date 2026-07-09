@@ -147,7 +147,7 @@ Each app produces one block (same format as Zoho CRM example in training videos)
 * **Jun 19, 2026**: v0.5 — Full XDR pipeline: long scan wait, domain node click, malicious SHA validation, Auto/Assist/Manual modes, manual decision panel in side panel.
 * **Jun 19, 2026**: Created `mastermind.md`, `.gitignore`, pushed to GitHub `Zahid01711/soc-app-discovery-automation`.
 * **Jun 23, 2026**: v0.6 — Added improved notebook block styling with box/line format and color status markers (🟢/🟡/🔴), analyst name field, optional Google auto-assessment via Gemini tab, and `keepUmbrellaTabsOpen` to keep app tabs open for manual label change to **Under Audit**.
-* **Jul 9, 2026**: v0.7 — Stability pass: `scripting.executeScript` fallback for content scripts, duplicate-injection guards, manual XDR stop handling, notebook blank-template append fix, Gemini failures non-blocking, side panel error surfacing, XDR tab kept open in Assist/Manual modes.
+* **Jul 9, 2026**: v0.7 — Stability pass from post-install test video: Umbrella SPA polling, content-script PING + `executeScript` fallback, OneNote-style notebook template, side panel undefined-summary fix, XDR in-progress alert, partial batch on error, Google Sheets paste improvements, Gemini response stability, batch `running` reset on stop/startup.
 
 ---
 

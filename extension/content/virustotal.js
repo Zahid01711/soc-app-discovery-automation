@@ -14,8 +14,12 @@
       return { summary: `${bad}/${total} vendors flagged malicious`, status: "flagged" };
     }
 
-    if (/harmless|clean|no security vendors flagged/i.test(text)) {
-      return { summary: "Clean — no vendors flagged", status: "clean" };
+    if (/no security vendors flagged this url as malicious/i.test(text)) {
+      return { summary: "No security vendors flagged this URL as malicious", status: "clean" };
+    }
+
+    if (/harmless|clean|no security vendors flagged|0\/\d+\s*security vendors/i.test(text)) {
+      return { summary: "No security vendors flagged this URL as malicious", status: "clean" };
     }
 
     if (/malicious/i.test(text)) {
@@ -26,6 +30,10 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, _s, sendResponse) => {
+    if (msg.type === "PING") {
+      sendResponse({ ok: true, page: "virustotal" });
+      return true;
+    }
     if (msg.type === "VT_EXTRACT") sendResponse({ ok: true, ...extract() });
     return true;
   });

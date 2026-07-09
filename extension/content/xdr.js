@@ -23,7 +23,10 @@
   }
 
   function isStillLoading(text) {
-    return /Investigating|Loading|Querying|In progress|Please wait/i.test(text) && !isInvestigationComplete(text);
+    if (isInvestigationComplete(text)) return false;
+    if (/\bInvestigating\b/i.test(text)) return true;
+    if (/\b\d{1,3}%\b/.test(text) && /Investigat/i.test(text)) return true;
+    return /Loading|Querying|In progress|Please wait|Scanning/i.test(text);
   }
 
   function extractResults() {
@@ -339,6 +342,10 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, _s, sendResponse) => {
+    if (msg.type === "PING") {
+      sendResponse({ ok: true, page: "xdr" });
+      return true;
+    }
     if (msg.type === "XDR_INVESTIGATE") {
       sendResponse(fillAndInvestigate(msg.searchUrl));
       return true;

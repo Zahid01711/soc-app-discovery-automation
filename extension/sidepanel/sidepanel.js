@@ -3,9 +3,22 @@ let isRunning = false;
 let pendingXdrTabId = null;
 
 async function send(type, payload = {}) {
-  const res = await chrome.runtime.sendMessage({ type, ...payload });
-  if (res?.ok === false) throw new Error(res.error || "Request failed");
-  return res;
+  try {
+    const res = await chrome.runtime.sendMessage({ type, ...payload });
+    if (res === undefined) {
+      throw new Error("Extension background not responding — reload extension in chrome://extensions");
+    }
+    if (res?.ok === false && res?.error) {
+      if (res.text || res.results) return res;
+      throw new Error(res.error);
+    }
+    return res;
+  } catch (err) {
+    if (err.message?.includes("Extension context invalidated")) {
+      throw new Error("Extension was reloaded — close and reopen this side panel.");
+    }
+    throw err;
+  }
 }
 
 function getXdrMode() {
@@ -13,16 +26,18 @@ function getXdrMode() {
 }
 
 function getWorkflowOptions(extra = {}) {
+  const mode = getXdrMode();
   return {
-    xdrMode: getXdrMode(),
+    xdrMode: mode,
     xdrMaxWaitMs: (parseInt($("xdrMaxWaitSec").value, 10) || 120) * 1000,
     enableShaBlocking: $("enableShaBlocking").checked,
     keepUmbrellaTabsOpen: $("keepUmbrellaTabsOpen").checked,
+    keepXdrTabOpen: $("keepXdrTabOpen")?.checked || mode === "assist" || mode === "manual",
     enableGoogleAutoAssessment: $("enableGoogleAutoAssessment").checked,
     keepGoogleTabOpen: $("keepGoogleTabOpen").checked,
     analystName: $("analystName").value.trim() || "MD Zahidul Islam",
     stopOnError: $("stopOnError").checked,
-    focusXdrTab: getXdrMode() === "assist",
+    focusXdrTab: mode === "assist",
     ...extra,
   };
 }
@@ -42,6 +57,12 @@ function setProgress(text, type = "idle") {
   $("progressBox").className = "progress-box" + (type !== "idle" ? ` ${type}` : "");
 }
 
+function setXdrAlertPending() {
+  const el = $("xdrWarning");
+  el.className = "alert pending";
+  el.textContent = "XDR: scan in progress — wait for completion…";
+}
+
 function showManualPanel(show, tabId = null) {
   pendingXdrTabId = tabId;
   $("xdrManualPanel").classList.toggle("hidden", !show);
@@ -55,6 +76,7 @@ async function loadSettings() {
   $("enableShaBlocking").checked = !!settings.enableShaBlocking;
   $("autoPasteBatch").checked = !!settings.autoPasteBatch;
   $("keepUmbrellaTabsOpen").checked = settings.keepUmbrellaTabsOpen !== false;
+  if ($("keepXdrTabOpen")) $("keepXdrTabOpen").checked = !!settings.keepXdrTabOpen;
   $("enableGoogleAutoAssessment").checked = !!settings.enableGoogleAutoAssessment;
   $("keepGoogleTabOpen").checked = !!settings.keepGoogleTabOpen;
   $("analystName").value = settings.analystName || "MD Zahidul Islam";
@@ -72,6 +94,7 @@ async function saveSettings() {
       enableShaBlocking: $("enableShaBlocking").checked,
       autoPasteBatch: $("autoPasteBatch").checked,
       keepUmbrellaTabsOpen: $("keepUmbrellaTabsOpen").checked,
+      keepXdrTabOpen: $("keepXdrTabOpen")?.checked || false,
       enableGoogleAutoAssessment: $("enableGoogleAutoAssessment").checked,
       keepGoogleTabOpen: $("keepGoogleTabOpen").checked,
       analystName: $("analystName").value.trim() || "MD Zahidul Islam",
@@ -90,14 +113,21 @@ async function refreshSetup() {
   else parts.push("Notebook: not set");
   parts.push(st.dryRun ? "Dry-run ON" : "Dry-run OFF");
   parts.push(`Queue: ${st.queueLength}`);
+  if (st.running) parts.push("RUNNING");
   $("setupStatus").textContent = parts.join(" · ");
   $("setupStatus").className = "setup-status " + (st.notebookOk ? "ok" : "warn");
   $("queueStatus").textContent = `Queue: ${st.queueLength} app(s)`;
+  if (st.running) setRunning(true);
 }
 
 function confirmShaBlock() {
   if (getXdrMode() !== "auto" || !$("enableShaBlocking").checked) return true;
   return confirm("Auto-block SHA is ON (Automatic mode).\n\nBot will click Block on validated malicious SHA256.\nDomain will NOT be blocked.\n\nContinue?");
+}
+
+function formatSummary(s) {
+  if (!s || s.success == null || s.total == null) return "";
+  return `${s.success}/${s.total} · ${s.shaApps || 0} malicious · ${s.blocked || 0} blocked`;
 }
 
 async function runBatchFromQueue() {
@@ -109,11 +139,14 @@ async function runBatchFromQueue() {
   await saveSettings();
   setRunning(true);
   showManualPanel(false);
+  setXdrAlertPending();
   setProgress("Running batch…", "running");
+  $("preview").value = "";
   try {
     const res = await send("RUN_BATCH", { options: { limit: 999, autoPasteBatch: $("autoPasteBatch").checked, ...getWorkflowOptions() } });
     showBatchResult(res);
-    setProgress(`Done — ${res.summary?.success}/${res.summary?.total} apps`, "success");
+    const label = res.summary?.stopped ? "Stopped" : "Done";
+    setProgress(`${label} — ${formatSummary(res.summary)}`, res.ok === false ? "error" : "success");
   } catch (e) {
     setProgress("FAILED — " + e.message, "error");
   } finally {
@@ -128,7 +161,9 @@ async function runSingle() {
   await saveSettings();
   setRunning(true);
   showManualPanel(false);
+  setXdrAlertPending();
   setProgress("Running…", "running");
+  $("preview").value = "";
   try {
     const res = await send("RUN_WORKFLOW", {
       options: { openGeminiTab: $("openGemini").checked, autoPaste: false, ...getWorkflowOptions() },
@@ -145,14 +180,19 @@ async function runSingle() {
 
 function showOneResult(res) {
   $("preview").value = res.text || "";
-  $("summary").textContent = `${res.app?.appName || ""} · ${res.app?.xdrSummary || ""}`;
+  $("preview").scrollTop = 0;
+  $("summary").textContent = `${res.app?.appName || "App"} · ${res.app?.xdrSummary || ""}`;
   updateXdrAlert(res);
 }
 
 function showBatchResult(res) {
   $("preview").value = res.text || "";
+  $("preview").scrollTop = 0;
   const s = res.summary || {};
-  $("summary").textContent = `${s.success}/${s.total} · ${s.shaApps || 0} malicious · ${s.blocked || 0} blocked · Umbrella tabs open for manual label update`;
+  const parts = [formatSummary(s)];
+  if (s.stopped) parts.push(`stopped at ${s.stoppedAt}`);
+  parts.push("Umbrella tabs left open for manual label update");
+  $("summary").textContent = parts.filter(Boolean).join(" · ");
   updateXdrAlert({ app: { xdrStatus: s.shaApps ? "malicious_sha" : "clean", shaBlocked: s.blocked ? ["x"] : [] } });
 }
 
@@ -167,6 +207,9 @@ function updateXdrAlert(res) {
   } else if (app.xdrStatus === "uncommon") {
     el.className = "alert ok";
     el.textContent = "XDR: Uncommon — reviewed clean.";
+  } else if (app.xdrStatus === "pending") {
+    el.className = "alert pending";
+    el.textContent = "XDR: scan in progress…";
   } else {
     el.className = "alert ok";
     el.textContent = "XDR: Clean.";
@@ -238,12 +281,13 @@ $("runListBatch").addEventListener("click", async () => {
   if (!confirmShaBlock()) return;
   await saveSettings();
   setRunning(true);
+  setXdrAlertPending();
   try {
     const res = await send("RUN_BATCH", {
       options: { limit: parseInt($("batchLimit").value, 10) || 15, autoPasteBatch: $("autoPasteBatch").checked, ...getWorkflowOptions() },
     });
     showBatchResult(res);
-    setProgress("List batch complete.", "success");
+    setProgress(`Done — ${formatSummary(res.summary)}`, "success");
   } catch (e) {
     setProgress("FAILED — " + e.message, "error");
   } finally {
@@ -254,7 +298,7 @@ $("runListBatch").addEventListener("click", async () => {
 $("stopBatch").addEventListener("click", async () => {
   await send("STOP_BATCH");
   showManualPanel(false);
-  setProgress("Stop requested.", "error");
+  setProgress("Stop requested — finishing current step…", "error");
 });
 
 $("copyPreview").addEventListener("click", async () => {
@@ -281,7 +325,11 @@ $("setNotebookTab").addEventListener("click", async () => {
     return setProgress("Open SOC-Interns Google Sheet first.", "error");
   }
   await send("SAVE_SETTINGS", {
-    settings: { dryRun: $("dryRun").checked, notebookTabId: tab.id, notebookTitle: tab.title },
+    settings: {
+      dryRun: $("dryRun").checked,
+      notebookTabId: tab.id,
+      notebookTitle: tab.title,
+    },
   });
   await refreshSetup();
   setProgress(`Notebook: ${tab.title}`, "success");
@@ -294,24 +342,34 @@ $("clearQueue").addEventListener("click", async () => {
 });
 
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === "WORKFLOW_PROGRESS") {
-    if (msg.phase === "xdr_manual") {
-      showManualPanel(true, msg.tabId || pendingXdrTabId);
-      setProgress("XDR — waiting for your decision (Clean / Uncommon / Malicious)", "running");
-      return;
-    }
-    if (msg.phase === "xdr_scan" || msg.xdrStep === "wait") {
-      setProgress(`XDR: ${msg.detail || msg.step || "scanning…"}`, "running");
-      return;
-    }
-    const label = [msg.step, msg.detail, msg.appName].filter(Boolean).join(" — ");
-    setProgress(label || "Working…", "running");
-    if (msg.text) {
-      $("preview").value = msg.text;
-      if (msg.summary) showBatchResult({ text: msg.text, summary: msg.summary });
-    }
+  if (msg.type !== "WORKFLOW_PROGRESS") return;
+
+  if (msg.phase === "xdr_manual") {
+    showManualPanel(true, msg.tabId || pendingXdrTabId);
+    setProgress("XDR — waiting for your decision (Clean / Uncommon / Malicious)", "running");
+    return;
+  }
+
+  if (msg.phase === "xdr_scan" || msg.xdrStep === "wait" || (msg.step === "XDR" && /progress|scan|wait/i.test(msg.detail || ""))) {
+    setXdrAlertPending();
+    setProgress(`XDR: ${msg.detail || msg.step || "scanning…"}`, "running");
+    return;
+  }
+
+  const label = [msg.step, msg.detail, msg.appName].filter(Boolean).join(" — ");
+  setProgress(label || "Working…", "running");
+
+  if (msg.step === "XDR" || msg.step === "VirusTotal" || msg.step === "Talos") {
+    setXdrAlertPending();
+  }
+
+  if (msg.text) {
+    $("preview").value = msg.text;
+    $("preview").scrollTop = 0;
+    if (msg.summary && msg.summary.success != null) showBatchResult({ text: msg.text, summary: msg.summary });
   }
 });
 
+send("RESET_BATCH_STATE").catch(() => {});
 loadSettings();
 refreshSetup();
