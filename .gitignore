@@ -7,6 +7,8 @@ videos rec/
 *.webm
 **/frames/
 **/frames_detailed/
+.video-frames/
+frame_test.jpg
 
 # OS / editor
 .DS_Store
