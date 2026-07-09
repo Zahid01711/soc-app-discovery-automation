@@ -15,28 +15,27 @@ export function renderEntry(d, entryNum = 1) {
 
   return [
     BLOCK_START,
-    `Date: ${shortDate(d.date)} | Entry: #${entryNum} | Status: ${status}`,
-    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-    `Name             : ${d.appName || ""}`,
-    `URL              : ${d.appUrl || ""}`,
-    `Description      : ${d.description || ""}`,
-    `Vendor           : ${d.vendor || ""}`,
-    `Risk Score       : ${d.umbrellaRisk || ""}`,
-    `Identities       : ${d.identities || ""}`,
-    `DNS Requests     : Total: ${formatNum(d.dnsTotal)}, Blocked: ${d.dnsBlocked || "-"}`,
-    `Category         : ${d.category || ""}`,
-    `App Type         : ${d.appType || ""}`,
+    `Date:${shortDate(d.date)} | Entry: #${entryNum} | Status: ${status}`,
+    `Name: ${d.appName || ""}`,
+    `URL: ${d.appUrl || ""}`,
+    `Description: ${d.description || ""}`,
+    `Vendor: ${d.vendor || ""}`,
+    `Risk Score: ${d.umbrellaRisk || ""}`,
+    `Identities: ${d.identities || ""}`,
+    `DNS Requests: Total: ${formatNum(d.dnsTotal)}, Blocked: ${d.dnsBlocked || "-"}`,
+    `Category: ${d.category || ""}`,
+    `App Type: ${d.appType || ""}`,
     "",
-    "Tool(s) used:",
-    `  Virus-Total    : ${vtLine}`,
-    `  Talos          : ${talosLine}`,
-    `  XDR            : ${xdrLine}`,
+    "Tool(s) used",
+    `Virus-Total: ${vtLine}`,
+    `TALOS: ${talosLine}`,
+    `XDR: ${xdrLine}`,
     "",
-    "Investigation:",
+    "Investigation",
     investigation,
     "",
-    `Analyst          : ${analystName}`,
-    `Analyst Notes    : ${d.analystNotes || ""}`,
+    `Analyst: ${analystName}`,
+    `Analyst Notes: ${d.analystNotes || ""}`,
     "",
     BLOCK_END,
     "",
@@ -60,12 +59,12 @@ export function renderBlankBlock() {
     "Category:",
     "App Type:",
     "",
-    "Tool(s) used:",
-    "  Virus-Total:",
-    "  Talos:",
-    "  XDR:",
+    "Tool(s) used",
+    "Virus-Total:",
+    "TALOS:",
+    "XDR:",
     "",
-    "Investigation:",
+    "Investigation",
     "",
     "Analyst Notes:",
     "",
@@ -118,56 +117,53 @@ function formatNum(n) {
 }
 
 function formatVtLine(summary) {
-  const s = summary || "Checked — see VirusTotal";
+  const s = summary || "Checked - see VirusTotal";
   if (/0\/\d+|no security vendors flagged|no vendors flagged|clean/i.test(s)) {
-    return `🟢 ${s.includes("vendors") ? s : "No security vendors flagged this URL as malicious"}`;
+    return s.includes("vendors") ? s : "No security vendors flagged this URL as malicious";
   }
-  if (/flagged|malicious|\d+\/\d+ vendors/i.test(s)) return `🔴 ${s}`;
-  return `🟡 ${s}`;
+  return s;
 }
 
 function formatTalosLine(summary) {
-  const s = summary || "Checked — see Talos";
-  if (/favorable|score\s*[1-9]/i.test(s)) return `🟢 ${s}`;
-  if (/neutral/i.test(s)) return `🟡 Neutral`;
-  if (/poor|questionable|-\d/i.test(s)) return `🔴 ${s}`;
-  if (/uncommon/i.test(s)) return `🟡 Uncommon`;
-  return `🟡 ${s}`;
+  const s = summary || "Checked - see Talos";
+  if (/neutral/i.test(s)) return "Neutral";
+  if (/uncommon/i.test(s)) return "Uncommon";
+  return s;
 }
 
 function formatXdrLine(d) {
   if (d.xdrStatus === "malicious_sha") {
-    const hashes = (d.maliciousShas || []).map((h) => `    ${h}`).join("\n");
+    const hashes = (d.maliciousShas || []).map((h) => `- ${h}`).join("\n");
     if (d.shaBlocked?.length) {
-      const blocked = d.shaBlocked.map((h) => `    ${h}`).join("\n");
-      return `🔴 Malicious SHA — BLOCKED:\n${blocked}`;
+      const blocked = d.shaBlocked.map((h) => `- ${h}`).join("\n");
+      return `Malicious SHA - BLOCKED:\n${blocked}`;
     }
-    return `🔴 Malicious SHA — block SHA256 (domain NOT auto-blocked):\n${hashes}`;
+    return `Malicious SHA - block SHA256 (domain not auto-blocked):\n${hashes}`;
   }
-  if (d.xdrStatus === "uncommon") return "🟡 uncommon — reviewed, overall clean";
+  if (d.xdrStatus === "uncommon") return "Uncommon - reviewed, overall clean";
   const summary = (d.xdrSummary || "clean").replace(/^XDR:\s*/i, "");
-  return `🟢 ${summary}`;
+  return summary;
 }
 
 function buildInvestigation(d) {
   const lines = [];
-  if (d.appType) lines.push(`  Usage Type       : ${d.appType}`);
-  if (d.businessRisk) lines.push(`  Business Risk    : ${d.businessRisk}`);
-  if (d.usageRisk) lines.push(`  Usage Risk       : ${d.usageRisk}`);
-  if (d.vendorCompliance) lines.push(`  Vendor Compliance: ${d.vendorCompliance}`);
-  if (d.firstDetected) lines.push(`  First Detected   : ${d.firstDetected}`);
-  if (d.lastDetected) lines.push(`  Last Detected    : ${d.lastDetected}`);
-  if (d.webReputation) lines.push(`  Web Reputation   : ${d.webReputation}`);
+  if (d.appType) lines.push(`Usage Type: ${d.appType}`);
+  if (d.businessRisk) lines.push(`Business Risk: ${d.businessRisk}`);
+  if (d.usageRisk) lines.push(`Usage Risk: ${d.usageRisk}`);
+  if (d.vendorCompliance) lines.push(`Vendor Compliance: ${d.vendorCompliance}`);
+  if (d.firstDetected) lines.push(`First Detected: ${d.firstDetected}`);
+  if (d.lastDetected) lines.push(`Last Detected: ${d.lastDetected}`);
+  if (d.webReputation) lines.push(`Web Reputation: ${d.webReputation}`);
 
   if (d.geminiAssessment) {
     lines.push("");
-    lines.push(`  (AI) What is ${d.appName} and what is it used for?`);
-    lines.push(`  ${d.geminiAssessment.replace(/\n/g, "\n  ")}`);
+    lines.push(`What is ${d.appName} and what is it used for?`);
+    lines.push(`${d.geminiAssessment.replace(/\n/g, "\n")}`);
   } else if (d.description) {
     lines.push("");
-    lines.push(`  (AI) What is ${d.appName} and what is it used for?`);
-    lines.push(`  ${d.description}`);
+    lines.push(`What is ${d.appName} and what is it used for?`);
+    lines.push(`${d.description}`);
   }
 
-  return lines.length ? lines.join("\n") : "  (pending)";
+  return lines.length ? lines.join("\n") : "(pending)";
 }
