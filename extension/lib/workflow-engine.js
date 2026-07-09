@@ -20,7 +20,6 @@ let pendingManualXdr = null;
 export function resolveManualXdr(result) {
   if (!pendingManualXdr) return false;
   pendingManualXdr.resolve(result);
-  pendingManualXdr = null;
   return true;
 }
 
@@ -28,10 +27,22 @@ export function getPendingManualXdr() {
   return pendingManualXdr ? { tabId: pendingManualXdr.tabId, appName: pendingManualXdr.app?.appName } : null;
 }
 
-function waitForManualDecision(tabId, app, onProgress) {
+function waitForManualDecision(tabId, app, onProgress, shouldStop) {
   return new Promise((resolve) => {
-    pendingManualXdr = { resolve, tabId, app };
+    const finish = (result) => {
+      clearInterval(poll);
+      pendingManualXdr = null;
+      resolve(result);
+    };
+
+    pendingManualXdr = { resolve: finish, tabId, app };
     onProgress?.(STEP.XDR_MANUAL, "Waiting for your decision in the side panel…");
+
+    const poll = setInterval(() => {
+      if (shouldStop?.()) {
+        finish({ cancelled: true, xdrStatus: "clean", summary: "Stopped by user", maliciousShas: [] });
+      }
+    }, 400);
   });
 }
 
@@ -85,14 +96,20 @@ async function runXdrPhase(app, ctx) {
     await focusTab?.(xdrTab.id);
     onProgress?.(STEP.XDR_MANUAL, "Review XDR scan, then pick Clean / Uncommon / Malicious below");
 
-    const manual = await waitForManualDecision(xdrTab.id, app, onProgress);
+    const manual = await waitForManualDecision(xdrTab.id, app, onProgress, ctx.shouldStop);
+    if (manual.cancelled) {
+      await closeTab?.(xdrTab.id);
+      throw new Error("Workflow stopped");
+    }
     app.xdrStatus = manual.xdrStatus || "clean";
     app.maliciousShas = manual.maliciousShas || [];
     app.xdrSummary = manual.summary || manual.xdrStatus;
     app.shaBlocked = manual.shaBlocked || [];
     app.analystNotes = manual.analystNotes || "";
 
-    if (!ctx.keepXdrTabOpen) await closeTab?.(xdrTab.id);
+    if (!ctx.keepXdrTabOpen && xdrMode !== "assist" && xdrMode !== "manual") {
+      await closeTab?.(xdrTab.id);
+    }
     return;
   }
 
@@ -131,7 +148,9 @@ async function runXdrPhase(app, ctx) {
     onProgress?.(STEP.XDR_BLOCK, `Blocked ${app.shaBlocked.length} SHA in XDR`);
   }
 
-  if (!ctx.keepXdrTabOpen) await closeTab?.(xdrTab.id);
+  if (!ctx.keepXdrTabOpen && xdrMode !== "assist" && xdrMode !== "manual") {
+    await closeTab?.(xdrTab.id);
+  }
 }
 
 export async function runAppWorkflow(app, ctx) {
@@ -196,9 +215,12 @@ export async function runAppWorkflow(app, ctx) {
   if (!app.analystNotes) app.analystNotes = buildAnalystNotes(app);
 
   if (ctx.enableGoogleAutoAssessment) {
-    const assessment = await runGoogleAssessment(app, ctx).catch((err) => `Google auto-assessment unavailable: ${err.message}`);
-    app.geminiAssessment = assessment;
-    progress("Google", "Assessment captured.");
+    try {
+      app.geminiAssessment = await runGoogleAssessment(app, ctx);
+      progress("Google", "Assessment captured.");
+    } catch (err) {
+      progress("Google", `Skipped — ${err.message}`);
+    }
   }
 
   const text = renderEntry(app);

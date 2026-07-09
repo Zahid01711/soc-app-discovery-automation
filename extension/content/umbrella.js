@@ -3,6 +3,9 @@
  */
 
 (function () {
+  if (window.__SOC_ADA_umbrella__) return;
+  window.__SOC_ADA_umbrella__ = true;
+
   function extractDetail() {
     const text = document.body?.innerText ?? "";
 
@@ -44,6 +47,7 @@
       vendorCompliance: matchField(text, "Vendor Compliance"),
       webReputation: matchField(text, "Web Reputation"),
       sourceUrl: location.href,
+      detailUrl: location.href,
     };
   }
 

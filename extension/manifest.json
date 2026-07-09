@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SOC App Discovery Assistant",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Tab-to-tab App Discovery automation — Umbrella, VirusTotal, Talos, XDR, SOC notebook. No APIs.",
   "permissions": [
     "storage",

@@ -1,4 +1,7 @@
 (function () {
+  if (window.__SOC_ADA_vt__) return;
+  window.__SOC_ADA_vt__ = true;
+
   function extract() {
     const text = document.body?.innerText ?? "";
     const domain = location.pathname.split("/").pop() || "";

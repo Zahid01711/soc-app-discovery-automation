@@ -3,7 +3,9 @@ let isRunning = false;
 let pendingXdrTabId = null;
 
 async function send(type, payload = {}) {
-  return chrome.runtime.sendMessage({ type, ...payload });
+  const res = await chrome.runtime.sendMessage({ type, ...payload });
+  if (res?.ok === false) throw new Error(res.error || "Request failed");
+  return res;
 }
 
 function getXdrMode() {

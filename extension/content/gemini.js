@@ -1,4 +1,7 @@
 (function () {
+  if (window.__SOC_ADA_gemini__) return;
+  window.__SOC_ADA_gemini__ = true;
+
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   function getResponseText() {

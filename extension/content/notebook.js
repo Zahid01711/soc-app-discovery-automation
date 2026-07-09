@@ -3,7 +3,43 @@
  */
 
 (function () {
+  if (window.__SOC_ADA_notebook__) return;
+  window.__SOC_ADA_notebook__ = true;
+
   const BLOCK_START = "----- APP DISCOVERY -----";
+  const BLANK_BLOCK = [
+    BLOCK_START,
+    "Date:",
+    "",
+    "App Name:",
+    "App URL:",
+    "Vendor:",
+    "Category:",
+    "App Type:",
+    "Description:",
+    "",
+    "Umbrella Risk:",
+    "Label:",
+    "Identities:",
+    "DNS Total:",
+    "DNS Blocked:",
+    "First Detected:",
+    "Last Detected:",
+    "Business Risk:",
+    "Usage Risk:",
+    "Vendor Compliance:",
+    "Web Reputation (Talos/Umbrella):",
+    "",
+    "VirusTotal:",
+    "Talos Reputation:",
+    "XDR:",
+    "",
+    "Recommended Label:",
+    "Analyst Notes:",
+    "",
+    "-------------------------",
+    "",
+  ].join("\n");
 
   chrome.runtime.onMessage.addListener((msg, _s, sendResponse) => {
     try {
@@ -40,10 +76,14 @@
       payload = existing.trimEnd() + "\n\n" + text;
     }
 
+    if (appendBlank) {
+      payload = payload.trimEnd() + "\n\n" + BLANK_BLOCK;
+    }
+
     insertText(cell, payload);
     commitEdit(cell);
 
-    return { pasted: true, chars: payload.length, blocks: (text.match(/----- APP DISCOVERY -----/g) || []).length };
+    return { pasted: true, chars: payload.length, blocks: (payload.match(/----- APP DISCOVERY -----/g) || []).length };
   }
 
   function getActiveCellInput() {

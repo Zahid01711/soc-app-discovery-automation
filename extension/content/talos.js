@@ -1,4 +1,7 @@
 (function () {
+  if (window.__SOC_ADA_talos__) return;
+  window.__SOC_ADA_talos__ = true;
+
   function extract() {
     const text = document.body?.innerText ?? "";
 

@@ -147,21 +147,23 @@ Each app produces one block (same format as Zoho CRM example in training videos)
 * **Jun 19, 2026**: v0.5 — Full XDR pipeline: long scan wait, domain node click, malicious SHA validation, Auto/Assist/Manual modes, manual decision panel in side panel.
 * **Jun 19, 2026**: Created `mastermind.md`, `.gitignore`, pushed to GitHub `Zahid01711/soc-app-discovery-automation`.
 * **Jun 23, 2026**: v0.6 — Added improved notebook block styling with box/line format and color status markers (🟢/🟡/🔴), analyst name field, optional Google auto-assessment via Gemini tab, and `keepUmbrellaTabsOpen` to keep app tabs open for manual label change to **Under Audit**.
+* **Jul 9, 2026**: v0.7 — Stability pass: `scripting.executeScript` fallback for content scripts, duplicate-injection guards, manual XDR stop handling, notebook blank-template append fix, Gemini failures non-blocking, side panel error surfacing, XDR tab kept open in Assist/Manual modes.
 
 ---
 
 ## 🔮 Current Status
 
-* **Status:** **v0.6.0 — Testing improvements from post-install videos integrated**
-* **Version:** `0.6.0` (see `extension/manifest.json`)
+* **Status:** **v0.7.0 — Stability and messaging fixes; ready for office dry-run testing**
+* **Version:** `0.7.0` (see `extension/manifest.json`)
 * **GitHub Repository:** `https://github.com/Zahid01711/soc-app-discovery-automation`
-* **Active Branch:** `main`
+* **Active Branch:** `v2`
 * **Git Auth:** SSH (`git@github.com:Zahid01711/soc-app-discovery-automation.git`) via `~/.ssh/github_zahid`
 * **Next Steps:**
-  1. Test **v0.6** with one app in Automatic mode + Google auto-assessment ON
-  2. Validate notebook text style/colors against office notebook page
-  3. Confirm batch with `keepUmbrellaTabsOpen` and manual label updates
-  4. Future: AMP module, endpoint tickets (reuse workflow engine + side panel)
+  1. Reload extension in `chrome://extensions` and test one app with **dry-run ON**
+  2. Test Automatic XDR mode on a clean app; then Assist and Manual modes
+  3. Paste to SOC-Interns with dry-run OFF — confirm blank template appends
+  4. Share one real notebook entry sample if exact format match still needed
+  5. Future: AMP module, endpoint tickets (reuse workflow engine + side panel)
 
 ---
 
